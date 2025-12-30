@@ -1,78 +1,88 @@
 import { useState } from "react";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
-
 function App() {
-  const [formData, setFormData] = useState({
-    name: "",
-    age: "",
-    phone: "",
-    email: "",
-  });
-
+  const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
+  const [responseData, setResponseData] = useState(null);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const uploadFile = async () => {
+    if (!file) {
+      setMessage("❌ Please select a file first");
+      return;
+    }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage("");
+    setMessage("Uploading...");
+    setResponseData(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          age: Number(formData.age),
-          phone: formData.phone,
-          email: formData.email,
-        }),
-      });
+      const res = await fetch(
+        "https://ad4al62702.execute-api.ap-south-1.amazonaws.com/dev/uploadfile",
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            // ❌ DO NOT set Content-Type
+          },
+          body: formData,
+        }
+      );
 
-      if (!response.ok) {
-        throw new Error(await response.text());
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText);
       }
 
-      const data = await response.json();
-      setMessage(`✅ User created (ID: ${data.id})`);
+      const data = await res.json();
+      setResponseData(data);
+      setMessage("✅ File uploaded successfully");
     } catch (err) {
       console.error(err);
-      setMessage("❌ Failed to create user");
+      setMessage("❌ File upload failed");
     }
   };
 
   return (
-    <div style={{ padding: "40px" }}>
-      <h2>Create User</h2>
+    <div style={{ padding: "40px", maxWidth: "600px" }}>
+      <h2>Upload File to S3</h2>
 
-      <form onSubmit={handleSubmit}>
-        <input name="name" placeholder="Name" onChange={handleChange} style={inputStyle} />
-        <input name="age" placeholder="Age" onChange={handleChange} style={inputStyle} />
-        <input name="phone" placeholder="Phone" onChange={handleChange} style={inputStyle} />
-        <input name="email" placeholder="Email" onChange={handleChange} style={inputStyle} />
+      <input
+        type="file"
+        onChange={(e) => setFile(e.target.files[0])}
+      />
 
-        <button type="submit">Save</button>
-      </form>
+      <br /><br />
 
-      {message && <p>{message}</p>}
+      <button onClick={uploadFile}>Upload</button>
+
+      <br /><br />
+
+      <p>{message}</p>
+
+      {/* ✅ Show API response */}
+      {responseData && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "15px",
+            border: "1px solid #ddd",
+            borderRadius: "6px",
+            background: "#f9f9f9",
+          }}
+        >
+          <h4>Upload Response</h4>
+          <p><b>Message:</b> {responseData.message}</p>
+          <p><b>Filename:</b> {responseData.filename}</p>
+          <p><b>S3 Key:</b> {responseData.s3_key}</p>
+          <p><b>Bucket:</b> {responseData.bucket}</p>
+          <p><b>Size:</b> {responseData.size} bytes</p>
+          <p><b>Content Type:</b> {responseData["content-type"]}</p>
+        </div>
+      )}
     </div>
   );
 }
-
-const inputStyle = {
-  display: "block",
-  marginBottom: "10px",
-  padding: "8px",
-};
 
 export default App;
